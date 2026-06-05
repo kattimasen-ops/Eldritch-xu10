@@ -1,0 +1,70 @@
+name: Build Eldritch for R36S (Optimized ARM64)
+
+on:
+  push:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build-r36s:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup Multi-Arch and Install Dependencies
+      run: |
+        sudo dpkg --add-architecture arm64
+        sudo apt-get update
+        
+        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake pkg-config
+        
+        sudo apt-get install -y \
+          libsdl2-dev:arm64 \
+          libopenal-dev:arm64 \
+          libogg-dev:arm64 \
+          libvorbis-dev:arm64 \
+          libvorbisfile-dev:arm64 \
+          libglu1-mesa-dev:arm64 \
+          libgles2-mesa-dev:arm64
+
+    - name: Configure CMake with RK3326 Cortex-A35 Hardware Optimizations
+      env:
+        PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig
+        PKG_CONFIG_LIBDIR: /usr/lib/aarch64-linux-gnu
+        PKG_CONFIG_SYSROOT_DIR: /
+        # Hier schalten wir die Performance-Zuendstufe fuer deine CPU frei:
+        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections"
+        CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections"
+        LDFLAGS: "-Wl,--gc-sections"
+      run: |
+        mkdir build
+        cd build
+        cmake .. \
+          -DCMAKE_SYSTEM_NAME=Linux \
+          -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+          -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+          -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+          -DCMAKE_FIND_ROOT_PATH=/usr/lib/aarch64-linux-gnu \
+          -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
+          -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
+          -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
+          -DARM64=ON \
+          -DGLES=ON \
+          -DUSE_GLES2=ON \
+          -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build Game (Multi-Threaded)
+      run: |
+        cd build
+        make -j$(nproc)
+
+    - name: Upload Custom R36S Eldritch Binary
+      uses: actions/artifacts@v4
+      with:
+        name: eldritch-r36s-heatsink-edition
+        path: |
+          build/eldritch
+          build/eldritch*
+        if-no-files-found: error
