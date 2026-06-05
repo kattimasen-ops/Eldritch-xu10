@@ -1,4 +1,4 @@
-name: Build Eldritch for R36S (Optimized ARM64)
+name: Build Eldritch for R36S (Self-Compiled Deps)
 
 on:
   push:
@@ -13,44 +13,72 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Setup Multi-Arch and Fix Ubuntu ARM64 Repositories
+    - name: Install Base Cross-Compiler Tools
       run: |
-        sudo dpkg --add-architecture arm64
-        
-        # Quellen aufteilen: Standard-Server nur fuer amd64 (PC) nutzen
-        sudo sed -i 's/deb http/deb [arch=amd64] http/g' /etc/apt/sources.list
-        sudo sed -i 's/deb https/deb [arch=amd64] https/g' /etc/apt/sources.list
-        
-        # Die korrekten Ubuntu-Ports Server fuer arm64 (R36S) hinzufügen
-        echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
-        echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-updates main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
-        echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-security main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
-        echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-backports main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
-        
-        # Jetzt updaten, ohne 404 Fehler zu werfen
         sudo apt-get update
-        
-        # Compiler installieren
-        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake pkg-config
-        
-        # Entwicklerbibliotheken laden
-        sudo apt-get install -y \
-          libsdl2-dev:arm64 \
-          libopenal-dev:arm64 \
-          libogg-dev:arm64 \
-          libvorbis-dev:arm64 \
-          libvorbisfile-dev:arm64 \
-          libglu1-mesa-dev:arm64 \
-          libgles2-mesa-dev:arm64
+        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make git
 
-    - name: Configure CMake with RK3326 Cortex-A35 Hardware Optimizations
+    - name: Build and Install SDL2 from Source (ARM64)
       env:
-        PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig
-        PKG_CONFIG_LIBDIR: /usr/lib/aarch64-linux-gnu
-        PKG_CONFIG_SYSROOT_DIR: /
-        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections"
-        CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections"
-        LDFLAGS: "-Wl,--gc-sections"
+        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe"
+      run: |
+        git clone --depth 1 --branch release-2.28.x https://github.com/libsdl-org/SDL.git
+        cd SDL
+        mkdir build && cd build
+        cmake .. \
+          -DCMAKE_SYSTEM_NAME=Linux \
+          -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+          -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+          -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+          -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DSDL_VIDEO_DRIVER_X11=ON \
+          -DSDL_VIDEO_DRIVER_GLES2=ON
+        make -j$(nproc)
+        sudo make install
+
+    - name: Build and Install OpenAL-Soft from Source (ARM64)
+      env:
+        CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe"
+      run: |
+        git clone --depth 1 https://github.com/kcat/openal-soft.git
+        cd openal-soft
+        mkdir build && cd build
+        cmake .. \
+          -DCMAKE_SYSTEM_NAME=Linux \
+          -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+          -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+          -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+          -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DALSOFT_EXAMPLES=OFF \
+          -DALSOFT_UTILS=OFF
+        make -j$(nproc)
+        sudo make install
+
+    - name: Build and Install LibOgg & LibVorbis (ARM64)
+      env:
+        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe"
+      run: |
+        # LibOgg
+        git clone --depth 1 https://github.com/xiph/ogg.git
+        cd ogg && mkdir build && cd build
+        cmake .. -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps -DCMAKE_BUILD_TYPE=Release
+        make -j$(nproc) && sudo make install
+        cd ../..
+        # LibVorbis
+        git clone --depth 1 https://github.com/xiph/vorbis.git
+        cd vorbis && mkdir build && cd build
+        cmake .. -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps -DCMAKE_BUILD_TYPE=Release -DOGG_ROOT=/opt/r36s-deps
+        make -j$(nproc) && sudo make install
+
+    - name: Configure Eldritch Game with Custom Optimizations
+      env:
+        # Wir weisen pkg-config und CMake an, NUR unsere selbst gebauten ARM64 Pakete zu nutzen
+        PKG_CONFIG_PATH: /opt/r36s-deps/lib/pkgconfig
+        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -I/opt/r36s-deps/include"
+        CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -I/opt/r36s-deps/include"
+        LDFLAGS: "-Wl,--gc-sections -L/opt/r36s-deps/lib"
       run: |
         mkdir build
         cd build
@@ -59,7 +87,7 @@ jobs:
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
           -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
           -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
-          -DCMAKE_FIND_ROOT_PATH=/usr/lib/aarch64-linux-gnu \
+          -DCMAKE_FIND_ROOT_PATH=/opt/r36s-deps \
           -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
           -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
           -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
@@ -68,7 +96,7 @@ jobs:
           -DUSE_GLES2=ON \
           -DCMAKE_BUILD_TYPE=Release
 
-    - name: Build Game (Multi-Threaded)
+    - name: Build Eldritch Game
       run: |
         cd build
         make -j$(nproc)
