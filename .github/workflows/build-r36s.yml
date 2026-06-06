@@ -15,50 +15,29 @@ jobs:
     - name: Install Toolchain
       run: |
         sudo apt-get update
-        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make git libgles2-mesa-dev
-
-    - name: Build Dependencies
-      run: |
-        sudo rm -rf /opt/r36s-deps && sudo mkdir -p /opt/r36s-deps && sudo chmod 777 /opt/r36s-deps
-        export CMAKE_ARGS="-DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=/usr/bin/aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=/usr/bin/aarch64-linux-gnu-g++ -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps"
-        
-        # Build SDL2
-        rm -rf /tmp/SDL && git clone --depth 1 --branch release-2.28.5 https://github.com/libsdl-org/SDL.git /tmp/SDL
-        mkdir -p /tmp/SDL/build && cd /tmp/SDL/build && cmake .. $CMAKE_ARGS && make -j$(nproc) && make install
-        
-        # Build OpenAL
-        rm -rf /tmp/openal && git clone --depth 1 --branch 1.23.1 https://github.com/kcat/openal-soft.git /tmp/openal
-        mkdir -p /tmp/openal/build && cd /tmp/openal/build && cmake .. $CMAKE_ARGS -DALSOFT_EXAMPLES=OFF && make -j$(nproc) && make install
+        # Wir brauchen zlib1g-dev für den HOST (x86_64), damit Checksum linken kann
+        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make git zlib1g-dev libgles2-mesa-dev
 
     - name: Configure and Build
       run: |
         cd $GITHUB_WORKSPACE/Code
-        # Radikale Bereinigung
         find . -name "build_game" -type d -exec rm -rf {} +
         mkdir build_game && cd build_game
         
-        # Wir zeigen dem Linker, dass er unsere interne ZLib nutzen soll
+        # 1. Wir setzen CMAKE_C_COMPILER auf den Host-Compiler (Standard)
+        # 2. Wir nutzen -DCMAKE_PROJECT_Eld_INCLUDE, um ARM-Flags NUR auf das Spiel anzuwenden
+        
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-          -DCMAKE_C_COMPILER=/usr/bin/aarch64-linux-gnu-gcc \
-          -DCMAKE_CXX_COMPILER=/usr/bin/aarch64-linux-gnu-g++ \
-          -DCMAKE_PREFIX_PATH="/opt/r36s-deps" \
-          -DSDL2_DIR="/opt/r36s-deps/lib/cmake/SDL2" \
-          -DWITH_SDL2=ON \
-          -DWITH_SDL2_STATIC=ON \
-          -DZLIB_INCLUDE_DIR="$GITHUB_WORKSPACE/Code/Libraries/zlib/src" \
-          -DZLIB_LIBRARY="$GITHUB_WORKSPACE/Code/build_game/Libraries/zlib/libZLib.a" \
+          -DCMAKE_C_COMPILER=/usr/bin/gcc \
+          -DCMAKE_CXX_COMPILER=/usr/bin/g++ \
+          -DCROSS_COMPILE_C=/usr/bin/aarch64-linux-gnu-gcc \
+          -DCROSS_COMPILE_CXX=/usr/bin/aarch64-linux-gnu-g++ \
           -DARM64=ON -DGLES=ON -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_CXX_FLAGS="-I/opt/r36s-deps/include -O3 -fpermissive -Wno-multichar -Wno-error=nonnull" \
-          -DCMAKE_C_FLAGS="-I/opt/r36s-deps/include -O3 -fpermissive -Wno-multichar"
-          
-        make -j$(nproc)
+          -DCMAKE_CXX_FLAGS="-O3 -fpermissive -Wno-error=nonnull" \
+          -DCMAKE_C_FLAGS="-O3"
 
-    - name: Upload Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: Eldritch-R36S-Binary
-        path: |
-          Code/build_game/Projects/Eld/Eld
-          Code/build_game/Eldritch
+        # Da Eldritch ein altes, monolithisches CMake-Projekt ist, 
+        # überschreiben wir die Compiler-Variablen direkt im Make-Aufruf
+        make CC=aarch64-linux-gnu-gcc CXX=aarch64-linux-gnu-g++ -j$(nproc)
