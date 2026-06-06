@@ -103,8 +103,6 @@ jobs:
     - name: Configure Eldritch Game with Custom Optimizations
       env:
         PKG_CONFIG_PATH: /opt/r36s-deps/lib/pkgconfig
-        # -Wno-error verbietet dem Compiler, bei irgendwelchen Warnungen den Build abzubrechen
-        # -Wno-multichar und -Wno-misleading-indentation sichern die alten Magic-IDs und unsere Vita-Mods ab
         CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -fpermissive -Wno-error -Wno-nonnull -Wno-multichar -Wno-misleading-indentation -I/opt/r36s-deps/include"
         CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -fpermissive -Wno-error -Wno-nonnull -Wno-multichar -Wno-misleading-indentation -I/opt/r36s-deps/include"
         LDFLAGS: "-Wl,--gc-sections -L/opt/r36s-deps/lib"
@@ -143,13 +141,5 @@ jobs:
     - name: Build Eldritch Game
       working-directory: ./Code/build_game
       run: |
-        make -j$(nproc)
-
-    - name: Upload Custom R36S Eldritch Binary
-      uses: actions/upload-artifact@v4
-      with:
-        name: eldritch-r36s-heatsink-edition
-        path: |
-          Code/build_game/eldritch
-          Code/build_game/eldritch*
-        if-no-files-found: error
+        # VERBOSE=1 zwingt make dazu, uns das echte Problem direkt nach den 33% anzuzeigen
+        make VERBOSE=1
