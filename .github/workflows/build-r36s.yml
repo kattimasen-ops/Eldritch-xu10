@@ -86,7 +86,8 @@ jobs:
       run: |
         cd /tmp
         rm -rf vorbis
-        git clone --depth 1 --branch 1.3.7 https://github.com/xiph/vorbis.git
+        # Ohne das fehlerhafte Branch-Flag klonen wir direkt den stabilen Hauptzweig
+        git clone --depth 1 https://github.com/xiph/vorbis.git
         cd vorbis
         mkdir build_vorbis && cd build_vorbis
         cmake .. \
