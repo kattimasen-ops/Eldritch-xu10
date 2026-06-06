@@ -1,4 +1,4 @@
-name: Build Eldritch 2019 Reanimated for R36S
+name: Build Eldritch 2019 Hybrid R36S
 
 on:
   push:
@@ -13,139 +13,72 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Install Base Cross-Compiler Tools
+    - name: Install Base Dependencies
       run: |
         sudo apt-get update
-        # Installiert den ARM64-Compiler sowie die zwingend benötigten mobilen Mesa-Grafikheader
         sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make git libgles2-mesa-dev libegl1-mesa-dev
 
-    - name: Build and Install SDL2 from Source (ARM64)
-      env:
-        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe"
+    - name: Build and Install Dependencies (SDL2, OpenAL, Ogg, Vorbis)
       run: |
-        cd /tmp
-        rm -rf SDL
-        git clone --depth 1 --branch release-2.28.x https://github.com/libsdl-org/SDL.git
-        cd SDL
-        mkdir build_sdl && cd build_sdl
-        cmake .. \
-          -DCMAKE_SYSTEM_NAME=Linux \
-          -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-          -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-          -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
-          -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DSDL_VIDEO_DRIVER_X11=ON \
-          -DSDL_VIDEO_DRIVER_GLES2=ON
-        make -j$(nproc)
-        sudo make install
+        mkdir -p /opt/r36s-deps
+        # Build SDL2
+        git clone --depth 1 --branch release-2.28.x https://github.com/libsdl-org/SDL.git /tmp/SDL
+        mkdir /tmp/SDL/build && cd /tmp/SDL/build
+        cmake .. -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps -DSDL_VIDEO_DRIVER_X11=ON -DSDL_VIDEO_DRIVER_GLES2=ON
+        make -j$(nproc) && sudo make install
 
-    - name: Build and Install OpenAL-Soft from Source (ARM64)
-      env:
-        CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -std=c++17"
-        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe"
-      run: |
-        cd /tmp
-        rm -rf openal-soft
-        git clone --depth 1 --branch 1.22.2 https://github.com/kcat/openal-soft.git
-        cd openal-soft
-        mkdir build_openal && cd build_openal
-        cmake .. \
-          -DCMAKE_SYSTEM_NAME=Linux \
-          -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-          -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-          -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
-          -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DALSOFT_EXAMPLES=OFF \
-          -DALSOFT_UTILS=OFF
-        make -j$(nproc)
-        sudo make install
+        # Build OpenAL-Soft
+        git clone --depth 1 --branch 1.22.2 https://github.com/kcat/openal-soft.git /tmp/openal-soft
+        mkdir /tmp/openal-soft/build && cd /tmp/openal-soft/build
+        cmake .. -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps -DALSOFT_EXAMPLES=OFF -DALSOFT_UTILS=OFF
+        make -j$(nproc) && sudo make install
 
-    - name: Build and Install LibOgg (ARM64)
-      env:
-        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe"
-      run: |
-        cd /tmp
-        rm -rf ogg
-        git clone --depth 1 https://github.com/xiph/ogg.git
-        cd ogg
-        mkdir build_ogg && cd build_ogg
-        cmake .. \
-          -DCMAKE_SYSTEM_NAME=Linux \
-          -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-          -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-          -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
-          -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps \
-          -DCMAKE_BUILD_TYPE=Release
-        make -j$(nproc)
-        sudo make install
+        # Build Ogg/Vorbis
+        git clone --depth 1 https://github.com/xiph/ogg.git /tmp/ogg
+        mkdir /tmp/ogg/build && cd /tmp/ogg/build
+        cmake .. -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps
+        make -j$(nproc) && sudo make install
 
-    - name: Build and Install LibVorbis (ARM64)
-      env:
-        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe"
-      run: |
-        cd /tmp
-        rm -rf vorbis
-        git clone --depth 1 https://github.com/xiph/vorbis.git
-        cd vorbis
-        mkdir build_vorbis && cd build_vorbis
-        cmake .. \
-          -DCMAKE_SYSTEM_NAME=Linux \
-          -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-          -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-          -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
-          -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DOGG_ROOT=/opt/r36s-deps
-        make -j$(nproc)
-        sudo make install
+        git clone --depth 1 https://github.com/xiph/vorbis.git /tmp/vorbis
+        mkdir /tmp/vorbis/build && cd /tmp/vorbis/build
+        cmake .. -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps -DOGG_ROOT=/opt/r36s-deps
+        make -j$(nproc) && sudo make install
 
-    - name: Prepare Eldritch 2019 Engine Patches
+    - name: Apply mEldritch & Performance Patches
       run: |
         cd $GITHUB_WORKSPACE/Code
         
-        # Performance-Mod für schwache Handhelds (Senkt Partikellimit bei Explosionen von 1000 auf 200)
-        if [ -f "Libraries/Core/src/particles.h" ]; then
-          sed -i 's/static const uint	sc_MaxParticles			= 1000;/static const uint	sc_MaxParticles			= 200;/g' Libraries/Core/src/particles.h
-        fi
-        
-        # Audio-Thread-Entlastung (Fügt Mini-Delay hinzu, spart enorm viel CPU-Last auf dem RK3326)
-        if [ -f "Libraries/Audio/src/soundmanager.cpp" ]; then
-          sed -i 's/m_SoundSystem->Tick();/m_SoundSystem->Tick();\n\t\tSDL_Delay(1);/g' Libraries/Audio/src/soundmanager.cpp
+        # 1. SoLoud Fix (Backend Forcing)
+        sed -i '1s/^/#define WITH_SDL2 1\n#define WITH_SDL2_STATIC 1\n/' Libraries/SoLoud/src/core/soloud.cpp
+
+        # 2. Asset-Overrider
+        if [ -f "Libraries/Core/src/packstream.cpp" ]; then
+          sed -i 's/m_PackedFile( false )/m_PackedFile( false ) \/\/ Patched/g' Libraries/Core/src/packstream.cpp
         fi
 
-        # Zwingt SoLoud im Quellcode dazu, das SDL2-Backend zu nutzen (Verhindert den "No Backends Enabled" Absturz)
-        if [ -f "Libraries/SoLoud/src/core/soloud.cpp" ]; then
-          sed -i 's/#if 0 \/\/ Everything disabled/#define WITH_SDL2 1\n#if 0/g' Libraries/SoLoud/src/core/soloud.cpp
+        # 3. Quicksave/Load (F5/F9)
+        if [ -f "Projects/Eldritch/src/eldritchgame.cpp" ]; then
+          sed -i 's/void EldritchGame::Tick()/void EldritchGame::Tick() {\n\tif( m_Framework->GetKeyboard()->OnRise( SDL_SCANCODE_F5 ) ) { SaveGame(); }\n\tif( m_Framework->GetKeyboard()->OnRise( SDL_SCANCODE_F9 ) ) { LoadGame(); }/g' Projects/Eldritch/src/eldritchgame.cpp
         fi
 
-    - name: Configure Eldritch Game (GLES2 + ARM64)
+        # 4. Performance Tuning
+        sed -i 's/static const uint	sc_MaxParticles			= 1000;/static const uint	sc_MaxParticles			= 200;/g' Libraries/Core/src/particles.h
+        sed -i 's/m_SoundSystem->Tick();/m_SoundSystem->Tick();\n\t\tSDL_Delay(1);/g' Libraries/Audio/src/soundmanager.cpp
+
+    - name: Configure and Build
       env:
         PKG_CONFIG_PATH: /opt/r36s-deps/lib/pkgconfig
-        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -fpermissive -Wno-error -Wno-nonnull -Wno-multichar -Wno-misleading-indentation -I/opt/r36s-deps/include"
-        CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -fpermissive -Wno-error -Wno-nonnull -Wno-multichar -Wno-misleading-indentation -I/opt/r36s-deps/include"
-        LDFLAGS: "-Wl,--gc-sections -L/opt/r36s-deps/lib"
+        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -I/opt/r36s-deps/include"
+        CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -I/opt/r36s-deps/include"
+        LDFLAGS: "-L/opt/r36s-deps/lib"
       run: |
         cd $GITHUB_WORKSPACE/Code
-        rm -rf build_game
         mkdir build_game && cd build_game
-        
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
           -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
           -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
           -DCMAKE_FIND_ROOT_PATH=/opt/r36s-deps \
-          -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
-          -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
-          -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
-          -DARM64=ON \
-          -DGLES=ON \
-          -DUSE_GLES2=ON \
-          -DCMAKE_BUILD_TYPE=Release
-
-    - name: Build Eldritch Game
-      working-directory: ./Code/build_game
-      run: |
-        make VERBOSE=1
+          -DARM64=ON -DGLES=ON -DUSE_GLES2=ON -DCMAKE_BUILD_TYPE=Release
+        make -j$(nproc)
