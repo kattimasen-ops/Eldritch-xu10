@@ -16,7 +16,8 @@ jobs:
     - name: Install Base Cross-Compiler Tools
       run: |
         sudo apt-get update
-        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make git
+        # libgles2-mesa-dev und libegl1-mesa-dev liefern die vermissten GLES2/gl2.h Header
+        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make git libgles2-mesa-dev libegl1-mesa-dev
 
     - name: Build and Install SDL2 from Source (ARM64)
       env:
@@ -141,5 +142,4 @@ jobs:
     - name: Build Eldritch Game
       working-directory: ./Code/build_game
       run: |
-        # VERBOSE=1 zwingt make dazu, uns das echte Problem direkt nach den 33% anzuzeigen
         make VERBOSE=1
