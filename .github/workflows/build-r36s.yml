@@ -14,8 +14,9 @@ jobs:
 
     - name: Install System Dependencies
       run: |
+        sudo dpkg --add-architecture arm64
         sudo apt-get update
-        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make git libz-dev
+        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make git libz-dev libgles2-mesa-dev:arm64
 
     - name: Build Dependencies
       run: |
@@ -31,11 +32,10 @@ jobs:
         rm -rf /tmp/openal && git clone --depth 1 --branch 1.23.1 https://github.com/kcat/openal-soft.git /tmp/openal
         mkdir -p /tmp/openal/build && cd /tmp/openal/build && cmake .. $CMAKE_ARGS -DALSOFT_EXAMPLES=OFF && make -j$(nproc) && make install
 
-    - name: Patch Code
+    - name: Apply Patches
       run: |
         cd $GITHUB_WORKSPACE/Code
         git checkout .
-        # Gezielte Fixes ohne globale Ersetzungen
         [ -f "Libraries/Core/src/particles.h" ] && sed -i 's/sc_MaxParticles *= *1000/sc_MaxParticles = 200/g' Libraries/Core/src/particles.h
         [ -f "Libraries/Audio/src/soundmanager.cpp" ] && sed -i 's/m_SoundSystem->Tick();/m_SoundSystem->Tick(); SDL_Delay(1);/g' Libraries/Audio/src/soundmanager.cpp
         SOLOUD_CPP="Libraries/SoLoud/src/core/soloud.cpp"
@@ -45,18 +45,17 @@ jobs:
       run: |
         cd $GITHUB_WORKSPACE/Code
         rm -rf build_game && mkdir build_game && cd build_game
-        # Hier erzwingen wir die Pfade direkt im CMake-Aufruf
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
           -DCMAKE_C_COMPILER=/usr/bin/aarch64-linux-gnu-gcc \
           -DCMAKE_CXX_COMPILER=/usr/bin/aarch64-linux-gnu-g++ \
           -DCMAKE_PREFIX_PATH="/opt/r36s-deps" \
-          -DCMAKE_INCLUDE_PATH="/opt/r36s-deps/include" \
-          -DCMAKE_LIBRARY_PATH="/opt/r36s-deps/lib" \
+          -DCMAKE_INCLUDE_PATH="/opt/r36s-deps/include;/usr/include/aarch64-linux-gnu" \
+          -DCMAKE_LIBRARY_PATH="/opt/r36s-deps/lib;/usr/lib/aarch64-linux-gnu" \
           -DARM64=ON -DGLES=ON -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_CXX_FLAGS="-O3 -fpermissive -Wno-multichar" \
-          -DCMAKE_C_FLAGS="-O3 -fpermissive -Wno-multichar"
+          -DCMAKE_CXX_FLAGS="-O3 -fpermissive -Wno-multichar -I/usr/include/aarch64-linux-gnu" \
+          -DCMAKE_C_FLAGS="-O3 -fpermissive -Wno-multichar -I/usr/include/aarch64-linux-gnu"
         make -j$(nproc)
 
     - name: Upload Artifacts
