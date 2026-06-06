@@ -1,4 +1,4 @@
-name: Build Eldritch 2019 Hybrid R36S
+name: Build Eldritch R36S Final
 
 on:
   push:
@@ -8,63 +8,63 @@ on:
 jobs:
   build-r36s:
     runs-on: ubuntu-22.04
-
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Install Dependencies
+    - name: Install System Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make git libgles2-mesa-dev libz-dev
+        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make git libz-dev
 
-    - name: Build External Dependencies
+    - name: Build and Install Dependencies
       run: |
         mkdir -p /opt/r36s-deps
-        # Build SDL2
-        git clone --depth 1 --branch release-2.28.x https://github.com/libsdl-org/SDL.git /tmp/SDL
-        mkdir /tmp/SDL/build && cd /tmp/SDL/build
-        cmake .. -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps
-        make -j$(nproc) && sudo make install
+        export CMAKE_ARGS="-DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps"
+        
+        # SDL2
+        git clone --depth 1 --branch release-2.28.5 https://github.com/libsdl-org/SDL.git /tmp/SDL
+        mkdir /tmp/SDL/build && cd /tmp/SDL/build && cmake .. $CMAKE_ARGS && make -j$(nproc) && sudo make install
+        
+        # OpenAL
+        git clone --depth 1 --branch 1.23.1 https://github.com/kcat/openal-soft.git /tmp/openal
+        mkdir /tmp/openal/build && cd /tmp/openal/build && cmake .. $CMAKE_ARGS -DALSOFT_EXAMPLES=OFF && make -j$(nproc) && sudo make install
 
-        # Build OpenAL-Soft
-        git clone --depth 1 --branch 1.22.2 https://github.com/kcat/openal-soft.git /tmp/openal-soft
-        mkdir /tmp/openal-soft/build && cd /tmp/openal-soft/build
-        cmake .. -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps -DALSOFT_EXAMPLES=OFF -DALSOFT_UTILS=OFF
-        make -j$(nproc) && sudo make install
-
-    - name: Patch Code
+    - name: Apply Patches
       run: |
         cd $GITHUB_WORKSPACE/Code
-        # Patching (Sicherheits-Check inklusive)
-        find . -name "soloud.cpp" -exec sed -i '1s/^/#define WITH_SDL2 1\n#define WITH_SDL2_STATIC 1\n/' {} +
-        find . -name "packstream.cpp" -exec sed -i 's/m_PackedFile( false )/m_PackedFile( false ) \/\/ Patched/g' {} +
-        find . -name "particles.h" -exec sed -i 's/sc_MaxParticles *= *1000/sc_MaxParticles = 200/g' {} +
+        # Fix Source Syntax
+        find . -type f \( -name "*.cpp" -o -name "*.h" \) -exec sed -i 's/NULL/0/g' {} +
+        # Performance
+        [ -f "Libraries/Core/src/particles.h" ] && sed -i 's/sc_MaxParticles *= *1000/sc_MaxParticles = 200/g' Libraries/Core/src/particles.h
+        [ -f "Libraries/Audio/src/soundmanager.cpp" ] && sed -i 's/m_SoundSystem->Tick();/m_SoundSystem->Tick(); SDL_Delay(1);/g' Libraries/Audio/src/soundmanager.cpp
 
     - name: Configure and Build
       env:
-        # Hier erzwingen wir die Suche in unserem Deps-Ordner
-        CMAKE_LIBRARY_PATH: /opt/r36s-deps/lib
-        CMAKE_INCLUDE_PATH: /opt/r36s-deps/include
-        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -fpermissive -Wno-multichar"
-        CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -fpermissive -Wno-multichar"
+        CFLAGS: "-O3 -fpermissive -Wno-multichar"
+        CXXFLAGS: "-O3 -fpermissive -Wno-multichar"
       run: |
         cd $GITHUB_WORKSPACE/Code
-        rm -rf build_game && mkdir -p build_game && cd build_game
-        # Erzwinge absolute Pfade für Libs, falls CMake sie nicht findet
+        rm -rf build_game && mkdir build_game && cd build_game
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
           -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
           -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
-          -DOPENAL_LIBRARY=/opt/r36s-deps/lib/libopenal.so \
-          -DZLIB_LIBRARY=/usr/lib/aarch64-linux-gnu/libz.so \
-          -DOPENGL_gles2_LIBRARY=/opt/r36s-deps/lib/libGLESv2.so \
-          -DARM64=ON -DGLES=ON -DUSE_GLES2=ON -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_PREFIX_PATH="/opt/r36s-deps" \
+          -DCMAKE_FIND_ROOT_PATH="/opt/r36s-deps" \
+          -DARM64=ON -DGLES=ON -DCMAKE_BUILD_TYPE=Release
         make -j$(nproc)
 
-    - name: Upload Artifact
+    - name: Package Artifacts
+      run: |
+        mkdir -p /tmp/artifact/bin
+        cp $GITHUB_WORKSPACE/Code/build_game/Eldritch /tmp/artifact/bin/ 2>/dev/null || cp $GITHUB_WORKSPACE/Code/build_game/eldritch /tmp/artifact/bin/ 2>/dev/null || true
+        # Kopiere Abhängigkeiten für den R36S direkt mit
+        cp /opt/r36s-deps/lib/*.so* /tmp/artifact/bin/ 2>/dev/null || true
+
+    - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: Eldritch-R36S-Binary
-        path: $GITHUB_WORKSPACE/Code/build_game/Eldritch
+        name: Eldritch-R36S-Final
+        path: /tmp/artifact/bin/
