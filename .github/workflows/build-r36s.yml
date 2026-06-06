@@ -1,4 +1,4 @@
-name: #Build Eldritch for R36S (Self-Compiled Deps)
+name: Build Eldritch for R36S (Self-Compiled Deps)
 
 on:
   push:
