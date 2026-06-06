@@ -36,9 +36,16 @@ jobs:
     - name: Apply Patches
       run: |
         cd $GITHUB_WORKSPACE/Code
-        find . -type f \( -name "*.cpp" -o -name "*.h" \) -exec sed -i 's/NULL/0/g' {} +
+        # 1. Alles auf Originalzustand zurücksetzen (entfernt Syntax-Fehler aus vorigen Versuchen)
+        git checkout .
+        
+        # 2. Gezielte Performance-Patches
         [ -f "Libraries/Core/src/particles.h" ] && sed -i 's/sc_MaxParticles *= *1000/sc_MaxParticles = 200/g' Libraries/Core/src/particles.h
         [ -f "Libraries/Audio/src/soundmanager.cpp" ] && sed -i 's/m_SoundSystem->Tick();/m_SoundSystem->Tick(); SDL_Delay(1);/g' Libraries/Audio/src/soundmanager.cpp
+        
+        # 3. SoLoud Fix: Nur Zeile 1 einfügen, keine Manipulation der NULL-Werte
+        SOLOUD_CPP="Libraries/SoLoud/src/core/soloud.cpp"
+        [ -f "$SOLOUD_CPP" ] && sed -i '1i #define WITH_SDL2 1\n#define WITH_SDL2_STATIC 1' "$SOLOUD_CPP"
 
     - name: Configure and Build
       env:
@@ -51,20 +58,4 @@ jobs:
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
           -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-          -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
-          -DCMAKE_PREFIX_PATH="/opt/r36s-deps" \
-          -DCMAKE_FIND_ROOT_PATH="/opt/r36s-deps" \
-          -DARM64=ON -DGLES=ON -DCMAKE_BUILD_TYPE=Release
-        make -j$(nproc)
-
-    - name: Package Artifacts
-      run: |
-        mkdir -p /tmp/artifact/bin
-        cp $GITHUB_WORKSPACE/Code/build_game/Eldritch /tmp/artifact/bin/ 2>/dev/null || cp $GITHUB_WORKSPACE/Code/build_game/eldritch /tmp/artifact/bin/ 2>/dev/null || true
-        cp /opt/r36s-deps/lib/*.so* /tmp/artifact/bin/ 2>/dev/null || true
-
-    - name: Upload Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: Eldritch-R36S-Final
-        path: /tmp/artifact/bin/
+          -DCMAKE_CXX_COMPILER=aarch
