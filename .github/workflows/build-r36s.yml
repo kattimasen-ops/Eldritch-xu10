@@ -103,8 +103,10 @@ jobs:
     - name: Configure Eldritch Game with Custom Optimizations
       env:
         PKG_CONFIG_PATH: /opt/r36s-deps/lib/pkgconfig
-        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -fpermissive -Wno-nonnull -I/opt/r36s-deps/include"
-        CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -fpermissive -Wno-nonnull -I/opt/r36s-deps/include"
+        # -Wno-error verbietet dem Compiler, bei irgendwelchen Warnungen den Build abzubrechen
+        # -Wno-multichar und -Wno-misleading-indentation sichern die alten Magic-IDs und unsere Vita-Mods ab
+        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -fpermissive -Wno-error -Wno-nonnull -Wno-multichar -Wno-misleading-indentation -I/opt/r36s-deps/include"
+        CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -fpermissive -Wno-error -Wno-nonnull -Wno-multichar -Wno-misleading-indentation -I/opt/r36s-deps/include"
         LDFLAGS: "-Wl,--gc-sections -L/opt/r36s-deps/lib"
       run: |
         cd $GITHUB_WORKSPACE/Code
