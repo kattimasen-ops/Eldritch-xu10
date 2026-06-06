@@ -86,7 +86,7 @@ jobs:
       run: |
         cd /tmp
         rm -rf vorbis
-        git clone --depth 1 https://github.com/xiph/vorbis.git
+        git clone --depth 1 --branch 1.3.7 https://github.com/xiph/vorbis.git
         cd vorbis
         mkdir build_vorbis && cd build_vorbis
         cmake .. \
@@ -109,8 +109,8 @@ jobs:
       run: |
         cd $GITHUB_WORKSPACE/Code
         
-        # Automatischer Code-Patch für das fehlerhafte NULL-Makro in wbworld.cpp
-        sed -i 's/WB_MAKE_EVENT( OnWorldLoaded, NULL )/WB_MAKE_EVENT( OnWorldLoaded, WBEvent() )/g' Libraries/Workbench/src/wbworld.cpp
+        # Ersetzt das problematische NULL durch das moderne, typsichere nullptr für Pointer
+        sed -i 's/WB_MAKE_EVENT( OnWorldLoaded, NULL )/WB_MAKE_EVENT( OnWorldLoaded, nullptr )/g' Libraries/Workbench/src/wbworld.cpp
         
         rm -rf build_game
         mkdir build_game && cd build_game
