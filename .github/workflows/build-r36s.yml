@@ -19,15 +19,14 @@ jobs:
 
     - name: Build Dependencies
       run: |
-        sudo mkdir -p /opt/r36s-deps
-        sudo chmod 777 /opt/r36s-deps
+        sudo mkdir -p /opt/r36s-deps && sudo chmod 777 /opt/r36s-deps
         export CMAKE_ARGS="-DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=/usr/bin/aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=/usr/bin/aarch64-linux-gnu-g++ -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps"
         
-        # SDL2
+        # Build SDL2
         rm -rf /tmp/SDL && git clone --depth 1 --branch release-2.28.5 https://github.com/libsdl-org/SDL.git /tmp/SDL
         mkdir -p /tmp/SDL/build && cd /tmp/SDL/build && cmake .. $CMAKE_ARGS && make -j$(nproc) && make install
         
-        # OpenAL
+        # Build OpenAL
         rm -rf /tmp/openal && git clone --depth 1 --branch 1.23.1 https://github.com/kcat/openal-soft.git /tmp/openal
         mkdir -p /tmp/openal/build && cd /tmp/openal/build && cmake .. $CMAKE_ARGS -DALSOFT_EXAMPLES=OFF && make -j$(nproc) && make install
 
@@ -35,8 +34,6 @@ jobs:
       run: |
         cd $GITHUB_WORKSPACE/Code
         git checkout .
-        [ -f "Libraries/Core/src/particles.h" ] && sed -i 's/sc_MaxParticles *= *1000/sc_MaxParticles = 200/g' Libraries/Core/src/particles.h
-        [ -f "Libraries/Audio/src/soundmanager.cpp" ] && sed -i 's/m_SoundSystem->Tick();/m_SoundSystem->Tick(); SDL_Delay(1);/g' Libraries/Audio/src/soundmanager.cpp
         SOLOUD_CPP="Libraries/SoLoud/src/core/soloud.cpp"
         [ -f "$SOLOUD_CPP" ] && sed -i '1i #define WITH_SDL2 1\n#define WITH_SDL2_STATIC 1' "$SOLOUD_CPP"
 
@@ -44,23 +41,19 @@ jobs:
       run: |
         cd $GITHUB_WORKSPACE/Code
         rm -rf build_game && mkdir build_game && cd build_game
-        # Erzwinge Linker-Flags durch LDFLAGS
-        export LDFLAGS="-L/opt/r36s-deps/lib -lGLESv2 -lopenal -lSDL2"
+        # KONFIGURATION OHNE LINKER-FLAGS
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
           -DCMAKE_C_COMPILER=/usr/bin/aarch64-linux-gnu-gcc \
           -DCMAKE_CXX_COMPILER=/usr/bin/aarch64-linux-gnu-g++ \
           -DCMAKE_PREFIX_PATH="/opt/r36s-deps" \
-          -DARM64=ON -DGLES=ON -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_CXX_FLAGS="-O3 -fpermissive -Wno-multichar -I/opt/r36s-deps/include" \
-          -DCMAKE_C_FLAGS="-O3 -fpermissive -Wno-multichar -I/opt/r36s-deps/include"
-        make
+          -DARM64=ON -DGLES=ON -DCMAKE_BUILD_TYPE=Release
+        # BUILD MIT VARIABLEN
+        make VERBOSE=1
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: Eldritch-R36S-Final
-        path: |
-          Code/build_game/Eldritch
-          Code/build_game/eldritch
+        name: Eldritch-R36S-Binary
+        path: Code/build_game/Eldritch
