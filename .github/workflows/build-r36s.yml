@@ -1,3 +1,4 @@
+
 name: Build Eldritch R36S Final
 
 on:
@@ -14,8 +15,10 @@ jobs:
 
     - name: Install Dependencies
       run: |
+        sudo dpkg --add-architecture arm64
         sudo apt-get update
-        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make git libz-dev libgles2-mesa-dev
+        # Wir installieren die ARM64 Version von zlib und GLES
+        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make git zlib1g-dev:arm64 libgles2-mesa-dev:arm64
 
     - name: Build Dependencies
       run: |
@@ -35,23 +38,21 @@ jobs:
         cd $GITHUB_WORKSPACE/Code
         rm -rf build_game && mkdir build_game && cd build_game
         
-        # Hier werden alle bisherigen Fehlerquellen eliminiert:
-        # 1. -DWITH_SDL2=ON behebt den SoLoud Backend-Fehler
-        # 2. Explizite Pfad-Zuweisung für SDL2 und OpenAL
-        # 3. Wno-error=nonnull unterdrückt den 33%-Workbench-Abbruch
+        # Wir setzen explizit den Pfad zu den ARM-Bibliotheken im System
+        export ARM_LIB_PATH="/usr/lib/aarch64-linux-gnu"
         
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
           -DCMAKE_C_COMPILER=/usr/bin/aarch64-linux-gnu-gcc \
           -DCMAKE_CXX_COMPILER=/usr/bin/aarch64-linux-gnu-g++ \
-          -DCMAKE_PREFIX_PATH="/opt/r36s-deps" \
+          -DCMAKE_PREFIX_PATH="/opt/r36s-deps;$ARM_LIB_PATH" \
           -DSDL2_DIR="/opt/r36s-deps/lib/cmake/SDL2" \
           -DWITH_SDL2=ON \
           -DWITH_SDL2_STATIC=ON \
           -DARM64=ON -DGLES=ON -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_CXX_FLAGS="-I/opt/r36s-deps/include -O3 -fpermissive -Wno-multichar -Wno-error=nonnull" \
-          -DCMAKE_C_FLAGS="-I/opt/r36s-deps/include -O3 -fpermissive -Wno-multichar"
+          -DCMAKE_CXX_FLAGS="-I/opt/r36s-deps/include -O3 -fpermissive -Wno-multichar -Wno-error=nonnull -L$ARM_LIB_PATH" \
+          -DCMAKE_C_FLAGS="-I/opt/r36s-deps/include -O3 -fpermissive -Wno-multichar -L$ARM_LIB_PATH"
           
         make -j$(nproc)
 
