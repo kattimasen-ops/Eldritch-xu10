@@ -56,25 +56,43 @@ jobs:
         make -j$(nproc)
         sudo make install
 
-    - name: Build and Install LibOgg & LibVorbis (ARM64)
+    - name: Build and Install LibOgg (ARM64)
       env:
         CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe"
       run: |
-        # LibOgg
         git clone --depth 1 https://github.com/xiph/ogg.git
-        cd ogg && mkdir build && cd build
-        cmake .. -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps -DCMAKE_BUILD_TYPE=Release
-        make -j$(nproc) && sudo make install
-        cd ../..
-        # LibVorbis
+        cd ogg
+        mkdir build && cd build
+        cmake .. \
+          -DCMAKE_SYSTEM_NAME=Linux \
+          -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+          -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+          -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+          -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps \
+          -DCMAKE_BUILD_TYPE=Release
+        make -j$(nproc)
+        sudo make install
+
+    - name: Build and Install LibVorbis (ARM64)
+      env:
+        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe"
+      run: |
         git clone --depth 1 https://github.com/xiph/vorbis.git
-        cd vorbis && mkdir build && cd build
-        cmake .. -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps -DCMAKE_BUILD_TYPE=Release -DOGG_ROOT=/opt/r36s-deps
-        make -j$(nproc) && sudo make install
+        cd vorbis
+        mkdir build && cd build
+        cmake .. \
+          -DCMAKE_SYSTEM_NAME=Linux \
+          -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+          -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+          -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+          -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DOGG_ROOT=/opt/r36s-deps
+        make -j$(nproc)
+        sudo make install
 
     - name: Configure Eldritch Game with Custom Optimizations
       env:
-        # Wir weisen pkg-config und CMake an, NUR unsere selbst gebauten ARM64 Pakete zu nutzen
         PKG_CONFIG_PATH: /opt/r36s-deps/lib/pkgconfig
         CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -I/opt/r36s-deps/include"
         CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -I/opt/r36s-deps/include"
