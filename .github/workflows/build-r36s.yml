@@ -1,4 +1,4 @@
-name: Build Eldritch for R36S (Self-Compiled Deps)
+name: Build Eldritch 2019 Reanimated for R36S
 
 on:
   push:
@@ -16,7 +16,7 @@ jobs:
     - name: Install Base Cross-Compiler Tools
       run: |
         sudo apt-get update
-        # libgles2-mesa-dev und libegl1-mesa-dev liefern die vermissten GLES2/gl2.h Header
+        # Installiert den ARM64-Compiler sowie die zwingend benötigten mobilen Mesa-Grafikheader
         sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make git libgles2-mesa-dev libegl1-mesa-dev
 
     - name: Build and Install SDL2 from Source (ARM64)
@@ -40,7 +40,7 @@ jobs:
         make -j$(nproc)
         sudo make install
 
-    - name: Build and Install OpenAL-Soft from Source (ARM64 - Stable Release)
+    - name: Build and Install OpenAL-Soft from Source (ARM64)
       env:
         CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -std=c++17"
         CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe"
@@ -101,7 +101,26 @@ jobs:
         make -j$(nproc)
         sudo make install
 
-    - name: Configure Eldritch Game with Custom Optimizations
+    - name: Prepare Eldritch 2019 Engine Patches
+      run: |
+        cd $GITHUB_WORKSPACE/Code
+        
+        # Performance-Mod für schwache Handhelds (Senkt Partikellimit bei Explosionen von 1000 auf 200)
+        if [ -f "Libraries/Core/src/particles.h" ]; then
+          sed -i 's/static const uint	sc_MaxParticles			= 1000;/static const uint	sc_MaxParticles			= 200;/g' Libraries/Core/src/particles.h
+        fi
+        
+        # Audio-Thread-Entlastung (Fügt Mini-Delay hinzu, spart enorm viel CPU-Last auf dem RK3326)
+        if [ -f "Libraries/Audio/src/soundmanager.cpp" ]; then
+          sed -i 's/m_SoundSystem->Tick();/m_SoundSystem->Tick();\n\t\tSDL_Delay(1);/g' Libraries/Audio/src/soundmanager.cpp
+        fi
+
+        # Zwingt SoLoud im Quellcode dazu, das SDL2-Backend zu nutzen (Verhindert den "No Backends Enabled" Absturz)
+        if [ -f "Libraries/SoLoud/src/core/soloud.cpp" ]; then
+          sed -i 's/#if 0 \/\/ Everything disabled/#define WITH_SDL2 1\n#if 0/g' Libraries/SoLoud/src/core/soloud.cpp
+        fi
+
+    - name: Configure Eldritch Game (GLES2 + ARM64)
       env:
         PKG_CONFIG_PATH: /opt/r36s-deps/lib/pkgconfig
         CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -fpermissive -Wno-error -Wno-nonnull -Wno-multichar -Wno-misleading-indentation -I/opt/r36s-deps/include"
@@ -109,22 +128,9 @@ jobs:
         LDFLAGS: "-Wl,--gc-sections -L/opt/r36s-deps/lib"
       run: |
         cd $GITHUB_WORKSPACE/Code
-        
-        # 1. Behebt den bekannten Compiler-Absturz mit dem nullptr
-        sed -i 's/WB_MAKE_EVENT( OnWorldLoaded, NULL )/WB_MAKE_EVENT( OnWorldLoaded, nullptr )/g' Libraries/Workbench/src/wbworld.cpp
-        
-        # 2. Vita Performance Mod: Partikellimit drastisch senken (Verhindert Ruckler bei Explosionen)
-        if [ -f "Libraries/Core/src/particles.h" ]; then
-          sed -i 's/static const uint	sc_MaxParticles			= 1000;/static const uint	sc_MaxParticles			= 200;/g' Libraries/Core/src/particles.h
-        fi
-        
-        # 3. Vita Performance Mod: Audio-Warteschleifen entlasten (Bringt CPU-Entlastung)
-        if [ -f "Libraries/Audio/src/soundmanager.cpp" ]; then
-          sed -i 's/m_SoundSystem->Tick();/m_SoundSystem->Tick();\n\t\tSDL_Delay(1);/g' Libraries/Audio/src/soundmanager.cpp
-        fi
-
         rm -rf build_game
         mkdir build_game && cd build_game
+        
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
