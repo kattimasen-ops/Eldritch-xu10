@@ -12,7 +12,7 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Install System Dependencies
+    - name: Install Dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make git libz-dev libgles2-mesa-dev
@@ -30,30 +30,32 @@ jobs:
         rm -rf /tmp/openal && git clone --depth 1 --branch 1.23.1 https://github.com/kcat/openal-soft.git /tmp/openal
         mkdir -p /tmp/openal/build && cd /tmp/openal/build && cmake .. $CMAKE_ARGS -DALSOFT_EXAMPLES=OFF && make -j$(nproc) && make install
 
-    - name: Apply Patches
-      run: |
-        cd $GITHUB_WORKSPACE/Code
-        git checkout .
-        SOLOUD_CPP="Libraries/SoLoud/src/core/soloud.cpp"
-        [ -f "$SOLOUD_CPP" ] && sed -i '1i #define WITH_SDL2 1\n#define WITH_SDL2_STATIC 1' "$SOLOUD_CPP"
-
     - name: Configure and Build
       run: |
         cd $GITHUB_WORKSPACE/Code
         rm -rf build_game && mkdir build_game && cd build_game
-        # KONFIGURATION OHNE LINKER-FLAGS
+        
+        # WICHTIG: Wir setzen die Linker-Flags direkt in die CMake-Umgebung
+        # Dies zwingt den Linker, die Libs in unserem /opt-Pfad zu finden
+        export LDFLAGS="-L/opt/r36s-deps/lib -Wl,-rpath,/opt/r36s-deps/lib"
+        export CXXFLAGS="-I/opt/r36s-deps/include -O3 -fpermissive -Wno-multichar"
+        export CFLAGS="-I/opt/r36s-deps/include -O3 -fpermissive -Wno-multichar"
+
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
           -DCMAKE_C_COMPILER=/usr/bin/aarch64-linux-gnu-gcc \
           -DCMAKE_CXX_COMPILER=/usr/bin/aarch64-linux-gnu-g++ \
           -DCMAKE_PREFIX_PATH="/opt/r36s-deps" \
+          -DCMAKE_LIBRARY_PATH="/opt/r36s-deps/lib" \
+          -DCMAKE_INCLUDE_PATH="/opt/r36s-deps/include" \
           -DARM64=ON -DGLES=ON -DCMAKE_BUILD_TYPE=Release
-        # BUILD MIT VARIABLEN
-        make VERBOSE=1
+          
+        make -j$(nproc)
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: Eldritch-R36S-Binary
-        path: Code/build_game/Eldritch
+        name: Eldritch-R36S-Final
+        path: |
+          Code/build_game/Projects/Eld/Eld
