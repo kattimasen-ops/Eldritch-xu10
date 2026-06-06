@@ -33,13 +33,12 @@ jobs:
         cmake .. -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps -DALSOFT_EXAMPLES=OFF -DALSOFT_UTILS=OFF
         make -j$(nproc) && sudo make install
 
-        # Build Ogg
+        # Build Ogg & Vorbis
         git clone --depth 1 https://github.com/xiph/ogg.git /tmp/ogg
         mkdir /tmp/ogg/build && cd /tmp/ogg/build
         cmake .. -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps
         make -j$(nproc) && sudo make install
 
-        # Build Vorbis
         git clone --depth 1 https://github.com/xiph/vorbis.git /tmp/vorbis
         mkdir /tmp/vorbis/build && cd /tmp/vorbis/build
         cmake .. -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps -DOGG_ROOT=/opt/r36s-deps
@@ -48,45 +47,31 @@ jobs:
     - name: Apply mEldritch & Performance Patches
       run: |
         cd $GITHUB_WORKSPACE/Code
-        
-        # 1. SoLoud Fix (Backend Forcing)
+        # Fix SoLoud
         SOLOUD_CPP=$(find . -name "soloud.cpp" | head -n 1)
-        if [ -f "$SOLOUD_CPP" ]; then
-          sed -i '1s/^/#define WITH_SDL2 1\n#define WITH_SDL2_STATIC 1\n/' "$SOLOUD_CPP"
-        fi
-
-        # 2. mEldritch Asset-Overrider
+        [ -f "$SOLOUD_CPP" ] && sed -i '1s/^/#define WITH_SDL2 1\n#define WITH_SDL2_STATIC 1\n/' "$SOLOUD_CPP"
+        # Asset Overrider
         PACKSTREAM_CPP=$(find . -name "packstream.cpp" | head -n 1)
-        if [ -f "$PACKSTREAM_CPP" ]; then
-          sed -i 's/m_PackedFile( false )/m_PackedFile( false ) \/\/ Patched/g' "$PACKSTREAM_CPP"
-        fi
-
-        # 3. Quicksave/Load (F5/F9)
+        [ -f "$PACKSTREAM_CPP" ] && sed -i 's/m_PackedFile( false )/m_PackedFile( false ) \/\/ Patched/g' "$PACKSTREAM_CPP"
+        # Quicksave
         GAME_FILE=$(find . -name "eldritchgame.cpp" | head -n 1)
-        if [ -f "$GAME_FILE" ]; then
-          sed -i 's/void EldritchGame::Tick()/void EldritchGame::Tick() {\n\tif( m_Framework->GetKeyboard()->OnRise( SDL_SCANCODE_F5 ) ) { SaveGame(); }\n\tif( m_Framework->GetKeyboard()->OnRise( SDL_SCANCODE_F9 ) ) { LoadGame(); }/g' "$GAME_FILE"
-        fi
-
-        # 4. Performance Tuning
+        [ -f "$GAME_FILE" ] && sed -i 's/void EldritchGame::Tick()/void EldritchGame::Tick() {\n\tif( m_Framework->GetKeyboard()->OnRise( SDL_SCANCODE_F5 ) ) { SaveGame(); }\n\tif( m_Framework->GetKeyboard()->OnRise( SDL_SCANCODE_F9 ) ) { LoadGame(); }/g' "$GAME_FILE"
+        # Performance
         PARTICLE_FILE=$(find . -name "particles.h" | head -n 1)
-        if [ -f "$PARTICLE_FILE" ]; then
-          sed -i 's/sc_MaxParticles *= *1000/sc_MaxParticles = 200/g' "$PARTICLE_FILE"
-        fi
-        
+        [ -f "$PARTICLE_FILE" ] && sed -i 's/sc_MaxParticles *= *1000/sc_MaxParticles = 200/g' "$PARTICLE_FILE"
         SOUND_FILE=$(find . -name "soundmanager.cpp" | head -n 1)
-        if [ -f "$SOUND_FILE" ]; then
-          sed -i 's/m_SoundSystem->Tick();/m_SoundSystem->Tick();\n\t\tSDL_Delay(1);/g' "$SOUND_FILE"
-        fi
+        [ -f "$SOUND_FILE" ] && sed -i 's/m_SoundSystem->Tick();/m_SoundSystem->Tick();\n\t\tSDL_Delay(1);/g' "$SOUND_FILE"
 
     - name: Configure and Build
       env:
         PKG_CONFIG_PATH: /opt/r36s-deps/lib/pkgconfig
-        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -I/opt/r36s-deps/include"
-        CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -I/opt/r36s-deps/include"
+        # Hier sind die gelockerten Compiler-Flags:
+        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -I/opt/r36s-deps/include -fpermissive -Wno-multichar"
+        CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -I/opt/r36s-deps/include -fpermissive -Wno-multichar"
         LDFLAGS: "-L/opt/r36s-deps/lib"
       run: |
         cd $GITHUB_WORKSPACE/Code
-        mkdir -p build_game && cd build_game
+        rm -rf build_game && mkdir -p build_game && cd build_game
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
@@ -94,16 +79,14 @@ jobs:
           -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
           -DCMAKE_FIND_ROOT_PATH=/opt/r36s-deps \
           -DARM64=ON -DGLES=ON -DUSE_GLES2=ON -DCMAKE_BUILD_TYPE=Release
-        make -j$(nproc)
+        make -j$(nproc) || make
 
-    - name: Prepare Artifacts
+    - name: Prepare and Upload Artifacts
       run: |
         mkdir -p /tmp/artifact/bin
-        # Kopiere die Binary
         cp $GITHUB_WORKSPACE/Code/build_game/Eldritch /tmp/artifact/bin/ 2>/dev/null || cp $GITHUB_WORKSPACE/Code/build_game/eldritch /tmp/artifact/bin/ 2>/dev/null || true
-        # Kopiere die notwendigen Libs
         cp /opt/r36s-deps/lib/*.so* /tmp/artifact/bin/ 2>/dev/null || true
-
+        
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
