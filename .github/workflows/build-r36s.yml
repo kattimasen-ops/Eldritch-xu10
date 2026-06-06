@@ -107,7 +107,15 @@ jobs:
         CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -I/opt/r36s-deps/include"
         LDFLAGS: "-Wl,--gc-sections -L/opt/r36s-deps/lib"
       run: |
-        # Hier sind wir im echten Spielverzeichnis Eldritch-xu10
+        cd $GITHUB_WORKSPACE
+        echo "--- Zeige aktuelle Ordnerstruktur im Repository ---"
+        ls -la
+        
+        # Falls die CMakeLists.txt im Unterordner 'Eldritch' liegt, gehen wir dort rein
+        if [ -d "Eldritch" ]; then
+          cd Eldritch
+        fi
+        
         rm -rf build_game
         mkdir build_game && cd build_game
         cmake .. \
@@ -125,15 +133,18 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release
 
     - name: Build Eldritch Game
-      working-directory: ./build_game
       run: |
-        make -j$(nproc)
+        cd $GITHUB_WORKSPACE
+        if [ -d "Eldritch" ]; then
+          cd Eldritch
+        fi
+        cd build_game && make -j$(nproc)
 
     - name: Upload Custom R36S Eldritch Binary
       uses: actions/upload-artifact@v4
       with:
         name: eldritch-r36s-heatsink-edition
         path: |
-          build_game/eldritch
-          build_game/eldritch*
+          **/build_game/eldritch
+          **/build_game/eldritch*
         if-no-files-found: error
