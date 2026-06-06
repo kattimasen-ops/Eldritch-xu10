@@ -103,8 +103,9 @@ jobs:
     - name: Configure Eldritch Game with Custom Optimizations
       env:
         PKG_CONFIG_PATH: /opt/r36s-deps/lib/pkgconfig
-        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -I/opt/r36s-deps/include"
-        CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -I/opt/r36s-deps/include"
+        # -fpermissive zwingt den Compiler, bei alten Makros/NULL-Konvertierungen nicht abzubrechen
+        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -fpermissive -I/opt/r36s-deps/include"
+        CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -fpermissive -I/opt/r36s-deps/include"
         LDFLAGS: "-Wl,--gc-sections -L/opt/r36s-deps/lib"
       run: |
         cd $GITHUB_WORKSPACE/Code
