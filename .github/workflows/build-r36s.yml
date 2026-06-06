@@ -14,11 +14,8 @@ jobs:
 
     - name: Install System Dependencies
       run: |
-        # KEIN dpkg --add-architecture arm64 - das verursacht die 404 Fehler!
         sudo apt-get update
-        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make git libz-dev
-        # Wir installieren die GLES-Header ohne das gesamte System auf arm64 umzustellen:
-        sudo apt-get install -y libgles2-mesa-dev
+        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make git libz-dev libgles2-mesa-dev
 
     - name: Build Dependencies
       run: |
@@ -47,6 +44,8 @@ jobs:
       run: |
         cd $GITHUB_WORKSPACE/Code
         rm -rf build_game && mkdir build_game && cd build_game
+        # Erzwinge Linker-Flags durch LDFLAGS
+        export LDFLAGS="-L/opt/r36s-deps/lib -lGLESv2 -lopenal -lSDL2"
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
@@ -54,9 +53,9 @@ jobs:
           -DCMAKE_CXX_COMPILER=/usr/bin/aarch64-linux-gnu-g++ \
           -DCMAKE_PREFIX_PATH="/opt/r36s-deps" \
           -DARM64=ON -DGLES=ON -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_CXX_FLAGS="-O3 -fpermissive -Wno-multichar" \
-          -DCMAKE_C_FLAGS="-O3 -fpermissive -Wno-multichar"
-        make -j$(nproc)
+          -DCMAKE_CXX_FLAGS="-O3 -fpermissive -Wno-multichar -I/opt/r36s-deps/include" \
+          -DCMAKE_C_FLAGS="-O3 -fpermissive -Wno-multichar -I/opt/r36s-deps/include"
+        make
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
