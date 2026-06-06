@@ -39,12 +39,15 @@ jobs:
         make -j$(nproc)
         sudo make install
 
-    - name: Build and Install OpenAL-Soft from Source (ARM64)
+    - name: Build and Install OpenAL-Soft from Source (ARM64 - Stable Release)
       env:
-        CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe"
+        # -std=c++17 zwingt den Compiler in einen stabilen Modus ohne C++20 Bug
+        CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -std=c++17"
+        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe"
       run: |
         cd $GITHUB_WORKSPACE
-        git clone --depth 1 https://github.com/kcat/openal-soft.git
+        # Wir klonen hier die stabile Version 1.22.2 statt des fehlerhaften Masters
+        git clone --depth 1 --branch 1.22.2 https://github.com/kcat/openal-soft.git
         cd openal-soft
         rm -rf build
         mkdir build && cd build
