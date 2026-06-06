@@ -17,45 +17,52 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make git libz-dev
 
-    - name: Build and Install Dependencies
+    - name: Build Dependencies
       run: |
         sudo mkdir -p /opt/r36s-deps
         sudo chmod 777 /opt/r36s-deps
-        export CMAKE_ARGS="-DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps"
+        export CMAKE_ARGS="-DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=/usr/bin/aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=/usr/bin/aarch64-linux-gnu-g++ -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps"
         
         # SDL2
-        rm -rf /tmp/SDL
-        git clone --depth 1 --branch release-2.28.5 https://github.com/libsdl-org/SDL.git /tmp/SDL
+        rm -rf /tmp/SDL && git clone --depth 1 --branch release-2.28.5 https://github.com/libsdl-org/SDL.git /tmp/SDL
         mkdir -p /tmp/SDL/build && cd /tmp/SDL/build && cmake .. $CMAKE_ARGS && make -j$(nproc) && make install
         
         # OpenAL
-        rm -rf /tmp/openal
-        git clone --depth 1 --branch 1.23.1 https://github.com/kcat/openal-soft.git /tmp/openal
+        rm -rf /tmp/openal && git clone --depth 1 --branch 1.23.1 https://github.com/kcat/openal-soft.git /tmp/openal
         mkdir -p /tmp/openal/build && cd /tmp/openal/build && cmake .. $CMAKE_ARGS -DALSOFT_EXAMPLES=OFF && make -j$(nproc) && make install
 
-    - name: Apply Patches
+    - name: Patch Code
       run: |
         cd $GITHUB_WORKSPACE/Code
-        # 1. Alles auf Originalzustand zurücksetzen (entfernt Syntax-Fehler aus vorigen Versuchen)
         git checkout .
-        
-        # 2. Gezielte Performance-Patches
+        # Gezielte Fixes ohne globale Ersetzungen
         [ -f "Libraries/Core/src/particles.h" ] && sed -i 's/sc_MaxParticles *= *1000/sc_MaxParticles = 200/g' Libraries/Core/src/particles.h
         [ -f "Libraries/Audio/src/soundmanager.cpp" ] && sed -i 's/m_SoundSystem->Tick();/m_SoundSystem->Tick(); SDL_Delay(1);/g' Libraries/Audio/src/soundmanager.cpp
-        
-        # 3. SoLoud Fix: Nur Zeile 1 einfügen, keine Manipulation der NULL-Werte
         SOLOUD_CPP="Libraries/SoLoud/src/core/soloud.cpp"
         [ -f "$SOLOUD_CPP" ] && sed -i '1i #define WITH_SDL2 1\n#define WITH_SDL2_STATIC 1' "$SOLOUD_CPP"
 
     - name: Configure and Build
-      env:
-        CFLAGS: "-O3 -fpermissive -Wno-multichar"
-        CXXFLAGS: "-O3 -fpermissive -Wno-multichar"
       run: |
         cd $GITHUB_WORKSPACE/Code
         rm -rf build_game && mkdir build_game && cd build_game
+        # Hier erzwingen wir die Pfade direkt im CMake-Aufruf
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-          -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-          -DCMAKE_CXX_COMPILER=aarch
+          -DCMAKE_C_COMPILER=/usr/bin/aarch64-linux-gnu-gcc \
+          -DCMAKE_CXX_COMPILER=/usr/bin/aarch64-linux-gnu-g++ \
+          -DCMAKE_PREFIX_PATH="/opt/r36s-deps" \
+          -DCMAKE_INCLUDE_PATH="/opt/r36s-deps/include" \
+          -DCMAKE_LIBRARY_PATH="/opt/r36s-deps/lib" \
+          -DARM64=ON -DGLES=ON -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_CXX_FLAGS="-O3 -fpermissive -Wno-multichar" \
+          -DCMAKE_C_FLAGS="-O3 -fpermissive -Wno-multichar"
+        make -j$(nproc)
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: Eldritch-R36S-Final
+        path: |
+          Code/build_game/Eldritch
+          Code/build_game/eldritch
