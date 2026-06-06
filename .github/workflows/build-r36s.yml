@@ -21,8 +21,10 @@ jobs:
       run: |
         sudo mkdir -p /opt/r36s-deps && sudo chmod 777 /opt/r36s-deps
         export CMAKE_ARGS="-DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=/usr/bin/aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=/usr/bin/aarch64-linux-gnu-g++ -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps"
+        
         rm -rf /tmp/SDL && git clone --depth 1 --branch release-2.28.5 https://github.com/libsdl-org/SDL.git /tmp/SDL
         mkdir -p /tmp/SDL/build && cd /tmp/SDL/build && cmake .. $CMAKE_ARGS && make -j$(nproc) && make install
+        
         rm -rf /tmp/openal && git clone --depth 1 --branch 1.23.1 https://github.com/kcat/openal-soft.git /tmp/openal
         mkdir -p /tmp/openal/build && cd /tmp/openal/build && cmake .. $CMAKE_ARGS -DALSOFT_EXAMPLES=OFF && make -j$(nproc) && make install
 
@@ -30,13 +32,17 @@ jobs:
       run: |
         cd $GITHUB_WORKSPACE/Code
         rm -rf build_game && mkdir build_game && cd build_game
-        # WICHTIG: -Wno-error unterdrückt die Umwandlung von Warnungen in fatale Fehler
+        
+        # WICHTIG: Wir übergeben SDL2_DIR explizit, damit find_package es sofort findet
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
           -DCMAKE_C_COMPILER=/usr/bin/aarch64-linux-gnu-gcc \
           -DCMAKE_CXX_COMPILER=/usr/bin/aarch64-linux-gnu-g++ \
+          -DCMAKE_PREFIX_PATH="/opt/r36s-deps" \
+          -DSDL2_DIR="/opt/r36s-deps/lib/cmake/SDL2" \
           -DARM64=ON -DGLES=ON -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_CXX_FLAGS="-I/opt/r36s-deps/include -O3 -fpermissive -Wno-multichar -Wno-error=nonnull" \
           -DCMAKE_C_FLAGS="-I/opt/r36s-deps/include -O3 -fpermissive -Wno-multichar"
+          
         make VERBOSE=1
