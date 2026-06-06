@@ -24,10 +24,7 @@ jobs:
       run: |
         cd $GITHUB_WORKSPACE
         git clone --depth 1 --branch release-2.28.x https://github.com/libsdl-org/SDL.git
-        cd SDL
-        rm -rf build
-        mkdir build && cd build
-        cmake .. \
+        cd SDL && rm -rf build && mkdir build && cd build && cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
           -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
@@ -35,23 +32,16 @@ jobs:
           -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps \
           -DCMAKE_BUILD_TYPE=Release \
           -DSDL_VIDEO_DRIVER_X11=ON \
-          -DSDL_VIDEO_DRIVER_GLES2=ON
-        make -j$(nproc)
-        sudo make install
+          -DSDL_VIDEO_DRIVER_GLES2=ON && make -j$(nproc) && sudo make install
 
     - name: Build and Install OpenAL-Soft from Source (ARM64 - Stable Release)
       env:
-        # -std=c++17 zwingt den Compiler in einen stabilen Modus ohne C++20 Bug
         CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -std=c++17"
         CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe"
       run: |
         cd $GITHUB_WORKSPACE
-        # Wir klonen hier die stabile Version 1.22.2 statt des fehlerhaften Masters
         git clone --depth 1 --branch 1.22.2 https://github.com/kcat/openal-soft.git
-        cd openal-soft
-        rm -rf build
-        mkdir build && cd build
-        cmake .. \
+        cd openal-soft && rm -rf build && mkdir build && cd build && cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
           -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
@@ -59,9 +49,7 @@ jobs:
           -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps \
           -DCMAKE_BUILD_TYPE=Release \
           -DALSOFT_EXAMPLES=OFF \
-          -DALSOFT_UTILS=OFF
-        make -j$(nproc)
-        sudo make install
+          -DALSOFT_UTILS=OFF && make -j$(nproc) && sudo make install
 
     - name: Build and Install LibOgg (ARM64)
       env:
@@ -69,18 +57,13 @@ jobs:
       run: |
         cd $GITHUB_WORKSPACE
         git clone --depth 1 https://github.com/xiph/ogg.git
-        cd ogg
-        rm -rf build
-        mkdir build && cd build
-        cmake .. \
+        cd ogg && rm -rf build && mkdir build && cd build && cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
           -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
           -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
           -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps \
-          -DCMAKE_BUILD_TYPE=Release
-        make -j$(nproc)
-        sudo make install
+          -DCMAKE_BUILD_TYPE=Release && make -j$(nproc) && sudo make install
 
     - name: Build and Install LibVorbis (ARM64)
       env:
@@ -88,19 +71,14 @@ jobs:
       run: |
         cd $GITHUB_WORKSPACE
         git clone --depth 1 https://github.com/xiph/vorbis.git
-        cd vorbis
-        rm -rf build
-        mkdir build && cd build
-        cmake .. \
+        cd vorbis && rm -rf build && mkdir build && cd build && cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
           -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
           -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
           -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps \
           -DCMAKE_BUILD_TYPE=Release \
-          -DOGG_ROOT=/opt/r36s-deps
-        make -j$(nproc)
-        sudo make install
+          -DOGG_ROOT=/opt/r36s-deps && make -j$(nproc) && sudo make install
 
     - name: Configure Eldritch Game with Custom Optimizations
       env:
@@ -110,9 +88,7 @@ jobs:
         LDFLAGS: "-Wl,--gc-sections -L/opt/r36s-deps/lib"
       run: |
         cd $GITHUB_WORKSPACE
-        rm -rf build
-        mkdir build && cd build
-        cmake .. \
+        rm -rf build && mkdir build && cd build && cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
           -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
@@ -128,8 +104,7 @@ jobs:
 
     - name: Build Eldritch Game
       run: |
-        cd $GITHUB_WORKSPACE/build
-        make -j$(nproc)
+        cd $GITHUB_WORKSPACE/build && make -j$(nproc)
 
     - name: Upload Custom R36S Eldritch Binary
       uses: actions/upload-artifact@v4
