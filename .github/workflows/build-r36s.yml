@@ -1,4 +1,4 @@
-name: Build Eldritch for R36S (Self-Compiled Deps)
+name: #Build Eldritch for R36S (Self-Compiled Deps)
 
 on:
   push:
@@ -22,8 +22,10 @@ jobs:
       env:
         CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe"
       run: |
+        cd $GITHUB_WORKSPACE
         git clone --depth 1 --branch release-2.28.x https://github.com/libsdl-org/SDL.git
         cd SDL
+        rm -rf build
         mkdir build && cd build
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
@@ -41,8 +43,10 @@ jobs:
       env:
         CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe"
       run: |
+        cd $GITHUB_WORKSPACE
         git clone --depth 1 https://github.com/kcat/openal-soft.git
         cd openal-soft
+        rm -rf build
         mkdir build && cd build
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
@@ -60,8 +64,10 @@ jobs:
       env:
         CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe"
       run: |
+        cd $GITHUB_WORKSPACE
         git clone --depth 1 https://github.com/xiph/ogg.git
         cd ogg
+        rm -rf build
         mkdir build && cd build
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
@@ -77,8 +83,10 @@ jobs:
       env:
         CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe"
       run: |
+        cd $GITHUB_WORKSPACE
         git clone --depth 1 https://github.com/xiph/vorbis.git
         cd vorbis
+        rm -rf build
         mkdir build && cd build
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
@@ -98,8 +106,9 @@ jobs:
         CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -I/opt/r36s-deps/include"
         LDFLAGS: "-Wl,--gc-sections -L/opt/r36s-deps/lib"
       run: |
-        mkdir build
-        cd build
+        cd $GITHUB_WORKSPACE
+        rm -rf build
+        mkdir build && cd build
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
@@ -116,7 +125,7 @@ jobs:
 
     - name: Build Eldritch Game
       run: |
-        cd build
+        cd $GITHUB_WORKSPACE/build
         make -j$(nproc)
 
     - name: Upload Custom R36S Eldritch Binary
