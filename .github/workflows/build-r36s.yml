@@ -86,7 +86,6 @@ jobs:
       run: |
         cd /tmp
         rm -rf vorbis
-        # Ohne das fehlerhafte Branch-Flag klonen wir direkt den stabilen Hauptzweig
         git clone --depth 1 https://github.com/xiph/vorbis.git
         cd vorbis
         mkdir build_vorbis && cd build_vorbis
@@ -104,15 +103,25 @@ jobs:
     - name: Configure Eldritch Game with Custom Optimizations
       env:
         PKG_CONFIG_PATH: /opt/r36s-deps/lib/pkgconfig
-        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -fpermissive -I/opt/r36s-deps/include"
-        CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -fpermissive -I/opt/r36s-deps/include"
+        CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -fpermissive -Wno-nonnull -I/opt/r36s-deps/include"
+        CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -fpermissive -Wno-nonnull -I/opt/r36s-deps/include"
         LDFLAGS: "-Wl,--gc-sections -L/opt/r36s-deps/lib"
       run: |
         cd $GITHUB_WORKSPACE/Code
         
-        # Ersetzt das problematische NULL durch das moderne, typsichere nullptr für Pointer
+        # 1. Behebt den bekannten Compiler-Absturz mit dem nullptr
         sed -i 's/WB_MAKE_EVENT( OnWorldLoaded, NULL )/WB_MAKE_EVENT( OnWorldLoaded, nullptr )/g' Libraries/Workbench/src/wbworld.cpp
         
+        # 2. Vita Performance Mod: Partikellimit drastisch senken (Verhindert Ruckler bei Explosionen)
+        if [ -f "Libraries/Core/src/particles.h" ]; then
+          sed -i 's/static const uint	sc_MaxParticles			= 1000;/static const uint	sc_MaxParticles			= 200;/g' Libraries/Core/src/particles.h
+        fi
+        
+        # 3. Vita Performance Mod: Audio-Warteschleifen entlasten (Bringt CPU-Entlastung)
+        if [ -f "Libraries/Audio/src/soundmanager.cpp" ]; then
+          sed -i 's/m_SoundSystem->Tick();/m_SoundSystem->Tick();\n\t\tSDL_Delay(1);/g' Libraries/Audio/src/soundmanager.cpp
+        fi
+
         rm -rf build_game
         mkdir build_game && cd build_game
         cmake .. \
