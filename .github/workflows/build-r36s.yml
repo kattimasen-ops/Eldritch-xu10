@@ -15,9 +15,8 @@ jobs:
 
     - name: Install Base Dependencies
       run: |
-        sudo dpkg --add-architecture arm64
         sudo apt-get update
-        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make git libgles2-mesa-dev:arm64 zlib1g-dev:arm64
+        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make git libgles2-mesa-dev libz-dev
 
     - name: Build and Install Dependencies (SDL2, OpenAL, Ogg, Vorbis)
       run: |
@@ -34,12 +33,13 @@ jobs:
         cmake .. -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps -DALSOFT_EXAMPLES=OFF -DALSOFT_UTILS=OFF
         make -j$(nproc) && sudo make install
 
-        # Build Ogg & Vorbis
+        # Build Ogg
         git clone --depth 1 https://github.com/xiph/ogg.git /tmp/ogg
         mkdir /tmp/ogg/build && cd /tmp/ogg/build
         cmake .. -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps
         make -j$(nproc) && sudo make install
 
+        # Build Vorbis
         git clone --depth 1 https://github.com/xiph/vorbis.git /tmp/vorbis
         mkdir /tmp/vorbis/build && cd /tmp/vorbis/build
         cmake .. -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps -DOGG_ROOT=/opt/r36s-deps
@@ -87,7 +87,7 @@ jobs:
         mkdir -p /tmp/artifact/bin
         cp $GITHUB_WORKSPACE/Code/build_game/Eldritch /tmp/artifact/bin/ 2>/dev/null || cp $GITHUB_WORKSPACE/Code/build_game/eldritch /tmp/artifact/bin/ 2>/dev/null || true
         cp /opt/r36s-deps/lib/*.so* /tmp/artifact/bin/ 2>/dev/null || true
-
+        
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
