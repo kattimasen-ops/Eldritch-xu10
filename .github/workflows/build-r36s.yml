@@ -19,23 +19,24 @@ jobs:
 
     - name: Build and Install Dependencies
       run: |
-        mkdir -p /opt/r36s-deps
+        sudo mkdir -p /opt/r36s-deps
+        sudo chmod 777 /opt/r36s-deps
         export CMAKE_ARGS="-DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps"
         
         # SDL2
+        rm -rf /tmp/SDL
         git clone --depth 1 --branch release-2.28.5 https://github.com/libsdl-org/SDL.git /tmp/SDL
-        mkdir /tmp/SDL/build && cd /tmp/SDL/build && cmake .. $CMAKE_ARGS && make -j$(nproc) && sudo make install
+        mkdir -p /tmp/SDL/build && cd /tmp/SDL/build && cmake .. $CMAKE_ARGS && make -j$(nproc) && make install
         
         # OpenAL
+        rm -rf /tmp/openal
         git clone --depth 1 --branch 1.23.1 https://github.com/kcat/openal-soft.git /tmp/openal
-        mkdir /tmp/openal/build && cd /tmp/openal/build && cmake .. $CMAKE_ARGS -DALSOFT_EXAMPLES=OFF && make -j$(nproc) && sudo make install
+        mkdir -p /tmp/openal/build && cd /tmp/openal/build && cmake .. $CMAKE_ARGS -DALSOFT_EXAMPLES=OFF && make -j$(nproc) && make install
 
     - name: Apply Patches
       run: |
         cd $GITHUB_WORKSPACE/Code
-        # Fix Source Syntax
         find . -type f \( -name "*.cpp" -o -name "*.h" \) -exec sed -i 's/NULL/0/g' {} +
-        # Performance
         [ -f "Libraries/Core/src/particles.h" ] && sed -i 's/sc_MaxParticles *= *1000/sc_MaxParticles = 200/g' Libraries/Core/src/particles.h
         [ -f "Libraries/Audio/src/soundmanager.cpp" ] && sed -i 's/m_SoundSystem->Tick();/m_SoundSystem->Tick(); SDL_Delay(1);/g' Libraries/Audio/src/soundmanager.cpp
 
@@ -60,7 +61,6 @@ jobs:
       run: |
         mkdir -p /tmp/artifact/bin
         cp $GITHUB_WORKSPACE/Code/build_game/Eldritch /tmp/artifact/bin/ 2>/dev/null || cp $GITHUB_WORKSPACE/Code/build_game/eldritch /tmp/artifact/bin/ 2>/dev/null || true
-        # Kopiere Abhängigkeiten für den R36S direkt mit
         cp /opt/r36s-deps/lib/*.so* /tmp/artifact/bin/ 2>/dev/null || true
 
     - name: Upload Artifacts
