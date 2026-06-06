@@ -22,7 +22,7 @@ jobs:
         sudo mkdir -p /opt/r36s-deps && sudo chmod 777 /opt/r36s-deps
         export CMAKE_ARGS="-DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=/usr/bin/aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=/usr/bin/aarch64-linux-gnu-g++ -DCMAKE_INSTALL_PREFIX=/opt/r36s-deps"
         
-        # 1. ZLIB für ARM64 bauen (Behebt den "cannot find -lz" Fehler)
+        # 1. ZLIB für ARM64 bauen
         rm -rf /tmp/zlib && git clone --depth 1 --branch v1.3.1 https://github.com/madler/zlib.git /tmp/zlib
         cd /tmp/zlib && CC=aarch64-linux-gnu-gcc ./configure --prefix=/opt/r36s-deps && make -j$(nproc) && make install
         
@@ -34,13 +34,22 @@ jobs:
         rm -rf /tmp/openal && git clone --depth 1 --branch 1.23.1 https://github.com/kcat/openal-soft.git /tmp/openal
         mkdir -p /tmp/openal/build && cd /tmp/openal/build && cmake .. $CMAKE_ARGS -DALSOFT_EXAMPLES=OFF && make -j$(nproc) && make install
 
+        # 4. GLESv2 für ARM64 direkt herunterladen (Behebt den "cannot find -lGLESv2" Fehler)
+        mkdir -p /tmp/gles && cd /tmp/gles
+        wget http://ports.ubuntu.com/pool/main/libg/libglvnd/libgles2_1.4.0-1_arm64.deb
+        wget http://ports.ubuntu.com/pool/main/libg/libglvnd/libgles-dev_1.4.0-1_arm64.deb
+        wget http://ports.ubuntu.com/pool/main/libg/libglvnd/libglvnd0_1.4.0-1_arm64.deb
+        wget http://ports.ubuntu.com/pool/main/libg/libglvnd/libglvnd-core-dev_1.4.0-1_arm64.deb
+        for deb in *.deb; do dpkg -x $deb .; done
+        cp -r usr/lib/aarch64-linux-gnu/* /opt/r36s-deps/lib/
+        cp -r usr/include/* /opt/r36s-deps/include/
+
     - name: Configure and Build
       run: |
         cd $GITHUB_WORKSPACE/Code
-        # Löscht nur alte Build-Ordner, um einen sauberen Start zu garantieren
         rm -rf build_game && mkdir build_game && cd build_game
         
-        # Baut das Spiel und die Tools exklusiv für ARM64 und verweist auf unsere gebauten Abhängigkeiten
+        # -Wl,--allow-shlib-undefined erlaubt dem Linker, das Spiel erfolgreich zu verpacken!
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
@@ -53,11 +62,14 @@ jobs:
           -DARM64=ON -DGLES=ON -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_CXX_FLAGS="-I/opt/r36s-deps/include -O3 -fpermissive -Wno-error=nonnull" \
           -DCMAKE_C_FLAGS="-I/opt/r36s-deps/include -O3" \
-          -DCMAKE_EXE_LINKER_FLAGS="-L/opt/r36s-deps/lib"
+          -DCMAKE_EXE_LINKER_FLAGS="-L/opt/r36s-deps/lib -Wl,--allow-shlib-undefined"
           
         make -j$(nproc)
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: Eldritch-
+        name: Eldritch-R36S-Binary
+        path: |
+          Code/build_game/Projects/Eld/Eld
+          Code/build_game/Eldritch
