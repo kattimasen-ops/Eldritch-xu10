@@ -1,4 +1,4 @@
-name: Build Eldritch for XU10 (Self-Compiled Deps)
+name: Build Eldritch for R36S (Self-Compiled Deps)
 
 on:
   push:
@@ -22,10 +22,11 @@ jobs:
       env:
         CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe"
       run: |
+        cd /tmp
         rm -rf SDL
         git clone --depth 1 --branch release-2.28.x https://github.com/libsdl-org/SDL.git
         cd SDL
-        mkdir build && cd build
+        mkdir build_sdl && cd build_sdl
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
@@ -43,10 +44,11 @@ jobs:
         CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -std=c++17"
         CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe"
       run: |
+        cd /tmp
         rm -rf openal-soft
         git clone --depth 1 --branch 1.22.2 https://github.com/kcat/openal-soft.git
         cd openal-soft
-        mkdir build && cd build
+        mkdir build_openal && cd build_openal
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
@@ -63,10 +65,11 @@ jobs:
       env:
         CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe"
       run: |
+        cd /tmp
         rm -rf ogg
         git clone --depth 1 https://github.com/xiph/ogg.git
         cd ogg
-        mkdir build && cd build
+        mkdir build_ogg && cd build_ogg
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
@@ -81,10 +84,11 @@ jobs:
       env:
         CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe"
       run: |
+        cd /tmp
         rm -rf vorbis
         git clone --depth 1 https://github.com/xiph/vorbis.git
         cd vorbis
-        mkdir build && cd build
+        mkdir build_vorbis && cd build_vorbis
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
@@ -103,8 +107,9 @@ jobs:
         CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -I/opt/r36s-deps/include"
         LDFLAGS: "-Wl,--gc-sections -L/opt/r36s-deps/lib"
       run: |
-        rm -rf build
-        mkdir build && cd build
+        # Hier sind wir im echten Spielverzeichnis Eldritch-xu10
+        rm -rf build_game
+        mkdir build_game && cd build_game
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
@@ -120,7 +125,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release
 
     - name: Build Eldritch Game
-      working-directory: ./build
+      working-directory: ./build_game
       run: |
         make -j$(nproc)
 
@@ -129,6 +134,6 @@ jobs:
       with:
         name: eldritch-r36s-heatsink-edition
         path: |
-          build/eldritch
-          build/eldritch*
+          build_game/eldritch
+          build_game/eldritch*
         if-no-files-found: error
