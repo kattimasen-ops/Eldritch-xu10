@@ -35,27 +35,25 @@ jobs:
         cd $GITHUB_WORKSPACE/Code
         rm -rf build_game && mkdir build_game && cd build_game
         
-        # WICHTIG: Wir setzen die Linker-Flags direkt in die CMake-Umgebung
-        # Dies zwingt den Linker, die Libs in unserem /opt-Pfad zu finden
-        export LDFLAGS="-L/opt/r36s-deps/lib -Wl,-rpath,/opt/r36s-deps/lib"
-        export CXXFLAGS="-I/opt/r36s-deps/include -O3 -fpermissive -Wno-multichar"
-        export CFLAGS="-I/opt/r36s-deps/include -O3 -fpermissive -Wno-multichar"
-
+        # Wir erzwingen die Nutzung unserer selbst gebauten Libs durch direkte Pfad-Vorgaben
         cmake .. \
           -DCMAKE_SYSTEM_NAME=Linux \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
           -DCMAKE_C_COMPILER=/usr/bin/aarch64-linux-gnu-gcc \
           -DCMAKE_CXX_COMPILER=/usr/bin/aarch64-linux-gnu-g++ \
+          -DSDL2_LIBRARY=/opt/r36s-deps/lib/libSDL2.so \
+          -DSDL2_INCLUDE_DIR=/opt/r36s-deps/include/SDL2 \
+          -DOPENAL_LIBRARY=/opt/r36s-deps/lib/libopenal.so \
+          -DOPENAL_INCLUDE_DIR=/opt/r36s-deps/include \
           -DCMAKE_PREFIX_PATH="/opt/r36s-deps" \
-          -DCMAKE_LIBRARY_PATH="/opt/r36s-deps/lib" \
-          -DCMAKE_INCLUDE_PATH="/opt/r36s-deps/include" \
-          -DARM64=ON -DGLES=ON -DCMAKE_BUILD_TYPE=Release
+          -DARM64=ON -DGLES=ON -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_CXX_FLAGS="-I/opt/r36s-deps/include -O3 -fpermissive -Wno-multichar"
           
         make -j$(nproc)
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: Eldritch-R36S-Final
+        name: Eldritch-R36S-Binary
         path: |
           Code/build_game/Projects/Eld/Eld
