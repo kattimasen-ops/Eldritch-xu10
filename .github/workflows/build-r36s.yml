@@ -14,9 +14,11 @@ jobs:
 
     - name: Install System Dependencies
       run: |
-        sudo dpkg --add-architecture arm64
+        # KEIN dpkg --add-architecture arm64 - das verursacht die 404 Fehler!
         sudo apt-get update
-        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make git libz-dev libgles2-mesa-dev:arm64
+        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make git libz-dev
+        # Wir installieren die GLES-Header ohne das gesamte System auf arm64 umzustellen:
+        sudo apt-get install -y libgles2-mesa-dev
 
     - name: Build Dependencies
       run: |
@@ -51,11 +53,9 @@ jobs:
           -DCMAKE_C_COMPILER=/usr/bin/aarch64-linux-gnu-gcc \
           -DCMAKE_CXX_COMPILER=/usr/bin/aarch64-linux-gnu-g++ \
           -DCMAKE_PREFIX_PATH="/opt/r36s-deps" \
-          -DCMAKE_INCLUDE_PATH="/opt/r36s-deps/include;/usr/include/aarch64-linux-gnu" \
-          -DCMAKE_LIBRARY_PATH="/opt/r36s-deps/lib;/usr/lib/aarch64-linux-gnu" \
           -DARM64=ON -DGLES=ON -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_CXX_FLAGS="-O3 -fpermissive -Wno-multichar -I/usr/include/aarch64-linux-gnu" \
-          -DCMAKE_C_FLAGS="-O3 -fpermissive -Wno-multichar -I/usr/include/aarch64-linux-gnu"
+          -DCMAKE_CXX_FLAGS="-O3 -fpermissive -Wno-multichar" \
+          -DCMAKE_C_FLAGS="-O3 -fpermissive -Wno-multichar"
         make -j$(nproc)
 
     - name: Upload Artifacts
