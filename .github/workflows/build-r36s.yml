@@ -103,12 +103,15 @@ jobs:
     - name: Configure Eldritch Game with Custom Optimizations
       env:
         PKG_CONFIG_PATH: /opt/r36s-deps/lib/pkgconfig
-        # -fpermissive zwingt den Compiler, bei alten Makros/NULL-Konvertierungen nicht abzubrechen
         CFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -fpermissive -I/opt/r36s-deps/include"
         CXXFLAGS: "-march=armv8-a+crc -mcpu=cortex-a35 -O3 -pipe -fdata-sections -ffunction-sections -fpermissive -I/opt/r36s-deps/include"
         LDFLAGS: "-Wl,--gc-sections -L/opt/r36s-deps/lib"
       run: |
         cd $GITHUB_WORKSPACE/Code
+        
+        # Automatischer Code-Patch für das fehlerhafte NULL-Makro in wbworld.cpp
+        sed -i 's/WB_MAKE_EVENT( OnWorldLoaded, NULL )/WB_MAKE_EVENT( OnWorldLoaded, WBEvent() )/g' Libraries/Workbench/src/wbworld.cpp
+        
         rm -rf build_game
         mkdir build_game && cd build_game
         cmake .. \
